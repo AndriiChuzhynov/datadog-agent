@@ -397,6 +397,8 @@ func getSizeOfStructInode(probe *Probe) uint64 {
 		sizeOf = 608
 	case skernel.Kernel5_0 <= probe.kernelVersion.Code && probe.kernelVersion.Code < skernel.Kernel5_1:
 		sizeOf = 584
+	case probe.kernelVersion.Code != 0 && probe.kernelVersion.Code >= skernel.Kernel5_13:
+		sizeOf = 592
 	}
 
 	return sizeOf
@@ -410,6 +412,16 @@ func getSuperBlockMagicOffset(probe *Probe) uint64 {
 	}
 
 	return sizeOf
+}
+
+func getVFSLinkDentryPosition(probe *Probe) uint64 {
+	position := uint64(1)
+
+	if probe.kernelVersion.Code != 0 && probe.kernelVersion.Code >= skernel.Kernel5_12 {
+		position = 2
+	}
+
+	return position
 }
 
 // NewMountResolver instantiates a new mount resolver
