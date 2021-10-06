@@ -229,7 +229,7 @@ func TestOpen(t *testing.T) {
 	t.Run("io_uring", func(t *testing.T) {
 		defer os.Remove(testFile)
 
-		test.WaitSignal(t, func() error {
+		err = test.GetSignal(t, func() error {
 			f, err := os.OpenFile(testFile, os.O_RDWR|os.O_CREATE, 0755)
 			if err != nil {
 				return err
@@ -241,6 +241,10 @@ func TestOpen(t *testing.T) {
 		}, func(event *sprobe.Event, r *rules.Rule) bool {
 			return assert.Equal(t, "open", event.GetType(), "wrong event type")
 		})
+		if err != nil {
+			// if the file was not created, we can't open it with io_uring
+			t.Fatal(err)
+		}
 
 		iour, err := iouring.New(1)
 		if err != nil {
