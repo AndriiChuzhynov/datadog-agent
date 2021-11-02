@@ -35,14 +35,21 @@ func TestRulesetLoaded(t *testing.T) {
 	defer test.Close()
 
 	t.Run("ruleset_loaded", func(t *testing.T) {
-		if err := test.GetProbeCustomEvent(t, func() error {
-			test.reloadConfiguration()
+		if err = test.GetProbeCustomEvent(t, func() error {
+			// This test is an exception, we should never use any t.* method in the action function (especially within a
+			// goroutine). We don't have a choice here because we're not triggering a kernel space event: the same
+			// goroutine that calls test.reloadConfiguration will eventually call the callback.
+			go func() {
+				if err := test.reloadConfiguration(); err != nil {
+					t.Errorf("failed to reload configuration: %v", err)
+				}
+			}()
 			return nil
 		}, func(rule *rules.Rule, customEvent *sprobe.CustomEvent) bool {
 			assert.Equal(t, sprobe.RulesetLoadedRuleID, rule.ID, "wrong rule")
 			return true
 		}, model.CustomRulesetLoadedEventType); err != nil {
-			t.Error(err)
+			t.Fatal(err)
 		}
 	})
 }
@@ -79,24 +86,30 @@ func truncatedParents(t *testing.T, opts testOpts) {
 		err = test.GetProbeCustomEvent(t, func() error {
 			f, err := os.OpenFile(truncatedParentsFile, os.O_CREATE, 0755)
 			if err != nil {
-				t.Fatal(err)
+				return err
 			}
-			return f.Close()
+			if err = f.Close(); err != nil {
+				return err
+			}
+			return nil
 		}, func(rule *rules.Rule, customEvent *sprobe.CustomEvent) bool {
 			assert.Equal(t, sprobe.AbnormalPathRuleID, rule.ID, "wrong rule")
 			return true
 		}, model.CustomTruncatedParentsEventType)
 		if err != nil {
-			t.Error(err)
+			t.Fatal(err)
 		}
 
 		test.WaitSignal(t, func() error {
 			f, err := os.OpenFile(truncatedParentsFile, os.O_CREATE, 0755)
 			if err != nil {
-				t.Fatal(err)
+				return err
 			}
-			return f.Close()
-		}, func(event *sprobe.Event, rule *rules.Rule) {
+			if err = f.Close(); err != nil {
+				return err
+			}
+			return nil
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
 			// check the length of the filepath that triggered the custom event
 			filepath, err := event.GetFieldValue("open.file.path")
 			if err == nil {
@@ -106,10 +119,11 @@ func truncatedParents(t *testing.T, opts testOpts) {
 					// count the "a"s.
 					splittedFilepath = splittedFilepath[1:]
 				}
-				assert.Equal(t, "a", splittedFilepath[0], "invalid path resolution at the left edge")
-				assert.Equal(t, "a", splittedFilepath[len(splittedFilepath)-1], "invalid path resolution at the right edge")
-				assert.Equal(t, model.MaxPathDepth, len(splittedFilepath), "invalid path depth")
+				return assert.Equal(t, "a", splittedFilepath[0], "invalid path resolution at the left edge") &&
+					assert.Equal(t, "a", splittedFilepath[len(splittedFilepath)-1], "invalid path resolution at the right edge") &&
+					assert.Equal(t, model.MaxPathDepth, len(splittedFilepath), "invalid path depth")
 			}
+			return false
 		})
 	})
 }
@@ -146,10 +160,14 @@ func TestNoisyProcess(t *testing.T) {
 			for i := int64(0); i < testMod.config.LoadControllerEventsCountThreshold*2; i++ {
 				f, err := os.OpenFile(file, os.O_CREATE, 0755)
 				if err != nil {
-					t.Fatal(err)
+					return err
 				}
-				_ = f.Close()
-				_ = os.Remove(file)
+				if err = f.Close(); err != nil {
+					return err
+				}
+				if err = os.Remove(file); err != nil {
+					return err
+				}
 			}
 			return nil
 		}, func(rule *rules.Rule, customEvent *sprobe.CustomEvent) bool {
@@ -157,7 +175,7 @@ func TestNoisyProcess(t *testing.T) {
 			return true
 		}, model.CustomNoisyProcessEventType)
 		if err != nil {
-			t.Error(err)
+			t.Fatal(err)
 		}
 
 		// make sure the discarder has expired before moving on to other tests

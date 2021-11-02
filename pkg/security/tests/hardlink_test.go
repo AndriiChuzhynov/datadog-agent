@@ -43,16 +43,19 @@ func runHardlinkTests(t *testing.T, opts testOpts) {
 	}
 	defer os.Remove(testOrigExecutable)
 
-	if err := copyFile(executable, testOrigExecutable, 0755); err != nil {
+	if err = copyFile(executable, testOrigExecutable, 0755); err != nil {
 		t.Fatal(err)
 	}
 
 	t.Run("hardlink-creation", ifSyscallSupported("SYS_LINK", func(t *testing.T, syscallNB uintptr) {
 		test.WaitSignal(t, func() error {
 			cmd := exec.Command(testOrigExecutable, "/tmp/test1")
-			return cmd.Run()
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assertTriggeredRule(t, rule, "test_rule_orig")
+			if err = cmd.Run(); err != nil {
+				return err
+			}
+			return nil
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			return assertTriggeredRule(t, rule, "test_rule_orig")
 		})
 
 		testNewExecutable, _, err := test.Path("my-touch")
@@ -68,9 +71,12 @@ func runHardlinkTests(t *testing.T, opts testOpts) {
 
 		test.WaitSignal(t, func() error {
 			cmd := exec.Command(testNewExecutable, "/tmp/test2")
-			return cmd.Run()
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assertTriggeredRule(t, rule, "test_rule_link")
+			if err = cmd.Run(); err != nil {
+				return err
+			}
+			return nil
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			return assertTriggeredRule(t, rule, "test_rule_link")
 		})
 	}))
 
@@ -88,16 +94,22 @@ func runHardlinkTests(t *testing.T, opts testOpts) {
 
 		test.WaitSignal(t, func() error {
 			cmd := exec.Command(testOrigExecutable, "/tmp/test1")
-			return cmd.Run()
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assertTriggeredRule(t, rule, "test_rule_orig")
+			if err = cmd.Run(); err != nil {
+				return err
+			}
+			return nil
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			return assertTriggeredRule(t, rule, "test_rule_orig")
 		})
 
 		test.WaitSignal(t, func() error {
 			cmd := exec.Command(testNewExecutable, "/tmp/test2")
-			return cmd.Run()
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assertTriggeredRule(t, rule, "test_rule_link")
+			if err = cmd.Run(); err != nil {
+				return err
+			}
+			return nil
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			return assertTriggeredRule(t, rule, "test_rule_link")
 		})
 	}))
 }

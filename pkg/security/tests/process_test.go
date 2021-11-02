@@ -51,10 +51,15 @@ func TestProcess(t *testing.T) {
 
 	test.WaitSignal(t, func() error {
 		testFile, _, err := test.Create("test-process")
-		os.Remove(testFile)
-		return err
-	}, func(event *sprobe.Event, rule *rules.Rule) {
-		assertTriggeredRule(t, rule, "test_rule")
+		if err != nil {
+			return err
+		}
+		if err = os.Remove(testFile); err != nil {
+			return err
+		}
+		return nil
+	}, func(event *sprobe.Event, rule *rules.Rule) bool {
+		return assertTriggeredRule(t, rule, "test_rule")
 	})
 }
 
@@ -128,12 +133,16 @@ func TestProcessContext(t *testing.T) {
 				return err
 			}
 
-			return f.Close()
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			t.Errorf("got event: %s", event)
+			if err = f.Close(); err != nil {
+				return err
+			}
+			return nil
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			t.Errorf("shouldn't get an event: got event: %s", event)
+			return false
 		})
 		if err == nil {
-			t.Error("shouldn't get an event")
+			t.Fatal("shouldn't get an event")
 		}
 
 		defer os.Remove(testFile)
@@ -146,13 +155,18 @@ func TestProcessContext(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			return f.Close()
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assertTriggeredRule(t, rule, "test_exec_time")
+			if err = f.Close(); err != nil {
+				return err
+			}
+			return nil
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			a := assertTriggeredRule(t, rule, "test_exec_time")
+			b := validateExecSchema(t, event)
 
-			if !validateExecSchema(t, event) {
+			if !b {
 				t.Error(event.String())
 			}
+			return a && b
 		})
 	})
 
@@ -173,10 +187,13 @@ func TestProcessContext(t *testing.T) {
 				return err
 			}
 
-			return f.Close()
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assertFieldEqual(t, event, "process.file.path", executable)
-			assert.Equal(t, getInode(t, executable), event.ResolveProcessCacheEntry().FileFields.Inode, "wrong inode")
+			if err = f.Close(); err != nil {
+				return err
+			}
+			return nil
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			return assertFieldEqual(t, event, "process.file.path", executable) &&
+				assert.Equal(t, getInode(t, executable), event.ResolveProcessCacheEntry().FileFields.Inode, "wrong inode")
 		})
 	})
 
@@ -186,13 +203,17 @@ func TestProcessContext(t *testing.T) {
 
 		test.WaitSignal(t, func() error {
 			cmd := cmdFunc("ls", args, envs)
+			// we need to ignore the error because "--password" is not a valid option for ls
 			_ = cmd.Run()
 			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			var failed bool
+
 			// args
 			args, err := event.GetFieldValue("exec.args")
 			if err != nil || len(args.(string)) == 0 {
 				t.Error("not able to get args")
+				failed = true
 			}
 
 			contains := func(s string) bool {
@@ -206,12 +227,14 @@ func TestProcessContext(t *testing.T) {
 
 			if !contains("-al") || !contains("--password") || !contains("--custom") {
 				t.Error("arg not found")
+				failed = true
 			}
 
 			// envs
 			envs, err := event.GetFieldValue("exec.envs")
 			if err != nil || len(envs.([]string)) == 0 {
 				t.Error("not able to get envs")
+				failed = true
 			}
 
 			contains = func(s string) bool {
@@ -225,6 +248,7 @@ func TestProcessContext(t *testing.T) {
 
 			if !contains("LD_LIBRARY_PATH") {
 				t.Errorf("env not found: %v", event)
+				failed = true
 			}
 
 			// trigger serialization to test scrubber
@@ -232,15 +256,20 @@ func TestProcessContext(t *testing.T) {
 
 			if !strings.Contains(str, "password") || !strings.Contains(str, "custom") {
 				t.Error("args not serialized")
+				failed = true
 			}
 
 			if strings.Contains(str, "secret") || strings.Contains(str, "/tmp/lib") {
 				t.Error("secret or env values exposed")
+				failed = true
 			}
 
 			if !validateExecSchema(t, event) {
 				t.Error(event.String())
+				failed = true
 			}
+
+			return !failed
 		})
 	})
 
@@ -249,9 +278,12 @@ func TestProcessContext(t *testing.T) {
 
 		test.WaitSignal(t, func() error {
 			cmd := exec.Command(lsExecutable, "-ll")
-			return cmd.Run()
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assertTriggeredRule(t, rule, "test_rule_argv")
+			if err = cmd.Run(); err != nil {
+				return err
+			}
+			return nil
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			return assertTriggeredRule(t, rule, "test_rule_argv")
 		})
 	})
 
@@ -260,9 +292,12 @@ func TestProcessContext(t *testing.T) {
 
 		test.WaitSignal(t, func() error {
 			cmd := exec.Command(lsExecutable, "-ls", "--escape")
-			return cmd.Run()
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assertTriggeredRule(t, rule, "test_rule_args_flags")
+			if err = cmd.Run(); err != nil {
+				return err
+			}
+			return nil
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			return assertTriggeredRule(t, rule, "test_rule_args_flags")
 		})
 	})
 
@@ -271,9 +306,12 @@ func TestProcessContext(t *testing.T) {
 
 		test.WaitSignal(t, func() error {
 			cmd := exec.Command(lsExecutable, "--block-size", "123")
-			return cmd.Run()
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assertTriggeredRule(t, rule, "test_rule_args_options")
+			if err = cmd.Run(); err != nil {
+				return err
+			}
+			return nil
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			return assertTriggeredRule(t, rule, "test_rule_args_options")
 		})
 	})
 
@@ -290,17 +328,21 @@ func TestProcessContext(t *testing.T) {
 
 		test.WaitSignal(t, func() error {
 			cmd := cmdFunc("ls", args, envs)
+			// we need to ignore the error because the string of "a" generates a "File name too long" error
 			_ = cmd.Run()
 			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			var failed bool
+
 			args, err := event.GetFieldValue("exec.args")
 			if err != nil {
 				t.Errorf("not able to get args")
+				failed = true
 			}
 
 			argv := strings.Split(args.(string), " ")
-			assert.Equal(t, 2, len(argv), "incorrect number of args: %s", argv)
-			assert.Equal(t, true, strings.HasSuffix(argv[1], "..."), "args not truncated")
+			return assert.Equal(t, 2, len(argv), "incorrect number of args: %s", argv) &&
+				assert.Equal(t, true, strings.HasSuffix(argv[1], "..."), "args not truncated") && !failed
 		})
 
 		// number of args overflow
@@ -311,31 +353,41 @@ func TestProcessContext(t *testing.T) {
 
 		test.WaitSignal(t, func() error {
 			cmd := cmdFunc("ls", args, envs)
+			// we need to ignore the error because the string of "a" generates a "File name too long" error
 			_ = cmd.Run()
 			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			var failed bool
+
 			args, err := event.GetFieldValue("exec.args")
 			if err != nil {
 				t.Errorf("not able to get args")
+				failed = true
 			}
 
 			argv := strings.Split(args.(string), " ")
 			n := len(argv)
 			if n == 0 || n > nArgs {
 				t.Errorf("incorrect number of args %d: %s", n, args.(string))
+				failed = true
 			}
 
 			truncated, err := event.GetFieldValue("exec.args_truncated")
 			if err != nil {
 				t.Errorf("not able to get args truncated")
+				failed = true
 			}
 			if !truncated.(bool) {
 				t.Errorf("arg not truncated: %s", args.(string))
+				failed = true
 			}
 
 			if !validateExecSchema(t, event) {
 				t.Error(event.String())
+				failed = true
 			}
+
+			return !failed
 		})
 	})
 
@@ -360,6 +412,8 @@ func TestProcessContext(t *testing.T) {
 		test.WaitSignal(t, func() error {
 			var wg sync.WaitGroup
 
+			errChan := make(chan error, 1)
+
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
@@ -367,7 +421,7 @@ func TestProcessContext(t *testing.T) {
 				time.Sleep(2 * time.Second)
 				cmd := exec.Command("script", "/dev/null", "-c", executable+" -f "+testFile)
 				if err := cmd.Start(); err != nil {
-					t.Error(err)
+					errChan <- err
 					return
 				}
 				time.Sleep(2 * time.Second)
@@ -377,23 +431,39 @@ func TestProcessContext(t *testing.T) {
 			}()
 
 			wg.Wait()
+
+			select {
+			case err = <-errChan:
+				return err
+			default:
+			}
 			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assertFieldEqual(t, event, "process.file.path", executable)
+
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			var failed bool
+
+			if !assertFieldEqual(t, event, "process.file.path", executable) {
+				failed = true
+			}
 
 			if name, _ := event.GetFieldValue("process.tty_name"); !strings.HasPrefix(name.(string), "pts") {
 				t.Errorf("not able to get a tty name: %s\n", name)
+				failed = true
 			}
 
 			if inode := getInode(t, executable); inode != event.ResolveProcessCacheEntry().FileFields.Inode {
 				t.Errorf("expected inode %d, got %d => %+v", event.ResolveProcessCacheEntry().FileFields.Inode, inode, event)
+				failed = true
 			}
 
 			str := event.String()
 
 			if !strings.Contains(str, "pts") {
 				t.Error("tty not serialized")
+				failed = true
 			}
+
+			return !failed
 		})
 	})
 
@@ -412,16 +482,19 @@ func TestProcessContext(t *testing.T) {
 		test.WaitSignal(t, func() error {
 			cmd := cmdFunc("sh", args, nil)
 			if out, err := cmd.CombinedOutput(); err != nil {
-				t.Errorf("%s: %s", out, err)
+				return fmt.Errorf("%s: %s", out, err)
 			}
 			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assertTriggeredRule(t, rule, "test_rule_ancestors")
-			assert.Equal(t, "sh", event.ProcessContext.Ancestor.Comm)
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			a := assertTriggeredRule(t, rule, "test_rule_ancestors") &&
+				assert.Equal(t, "sh", event.ProcessContext.Ancestor.Comm)
 
-			if !validateExecSchema(t, event) {
+			b := validateExecSchema(t, event)
+			if !b {
 				t.Error(event.String())
 			}
+
+			return a && b
 		})
 	})
 
@@ -440,15 +513,18 @@ func TestProcessContext(t *testing.T) {
 		test.WaitSignal(t, func() error {
 			cmd := cmdFunc(shell, args, nil)
 			if out, err := cmd.CombinedOutput(); err != nil {
-				t.Errorf("%s: %s", out, err)
+				return fmt.Errorf("%s: %s", out, err)
 			}
 			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assert.Equal(t, "test_rule_pid1", rule.ID, "wrong rule triggered")
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			a := assert.Equal(t, "test_rule_pid1", rule.ID, "wrong rule triggered")
 
-			if !validateExecSchema(t, event) {
+			b := validateExecSchema(t, event)
+			if !b {
 				t.Error(event.String())
 			}
+
+			return a && b
 		})
 	})
 
@@ -468,18 +544,18 @@ func TestProcessContext(t *testing.T) {
 		test.WaitSignal(t, func() error {
 			cmd := cmdFunc(shell, args, envs)
 			if out, err := cmd.CombinedOutput(); err != nil {
-				t.Errorf("%s: %s", out, err)
+				return fmt.Errorf("%s: %s", out, err)
 			}
 			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assert.Equal(t, "test_rule_inode", rule.ID, "wrong rule triggered")
-
-			if !validateExecSchema(t, event) {
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			a := assert.Equal(t, "test_rule_inode", rule.ID, "wrong rule triggered")
+			b := validateExecSchema(t, event)
+			if !b {
 				t.Error(event.String())
 			}
 
 			service := event.GetProcessServiceTag()
-			assert.Equal(t, service, "myservice")
+			return assert.Equal(t, service, "myservice") && a && b
 		})
 	})
 }
@@ -501,18 +577,22 @@ func TestProcessExecCTime(t *testing.T) {
 	test.WaitSignal(t, func() error {
 		testFile, _, err := test.Path("touch")
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 		copyFile(executable, testFile, 0755)
 
 		cmd := exec.Command(testFile, "/tmp/test")
-		return cmd.Run()
-	}, func(event *sprobe.Event, rule *rules.Rule) {
-		assert.Equal(t, "test_exec_ctime", rule.ID, "wrong rule triggered")
-
-		if !validateExecSchema(t, event) {
+		if err = cmd.Run(); err != nil {
+			return err
+		}
+		return nil
+	}, func(event *sprobe.Event, rule *rules.Rule) bool {
+		a := assert.Equal(t, "test_exec_ctime", rule.ID, "wrong rule triggered")
+		b := validateExecSchema(t, event)
+		if !b {
 			t.Error(event.String())
 		}
+		return a && b
 	})
 }
 
@@ -532,10 +612,13 @@ func TestProcessExec(t *testing.T) {
 
 	test.WaitSignal(t, func() error {
 		cmd := exec.Command("sh", "-c", executable+" /dev/null")
-		return cmd.Run()
-	}, func(event *sprobe.Event, rule *rules.Rule) {
-		assertFieldEqual(t, event, "exec.file.path", executable)
-		assertFieldOneOf(t, event, "process.file.name", []interface{}{"sh", "bash", "dash"})
+		if err = cmd.Run(); err != nil {
+			return err
+		}
+		return nil
+	}, func(event *sprobe.Event, rule *rules.Rule) bool {
+		return assertFieldEqual(t, event, "exec.file.path", executable) &&
+			assertFieldOneOf(t, event, "process.file.name", []interface{}{"sh", "bash", "dash"})
 	})
 }
 
@@ -567,7 +650,7 @@ func TestProcessMetadata(t *testing.T) {
 
 	f, err := os.OpenFile(testFile, os.O_WRONLY, 0)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	f.WriteString("#!/bin/bash\n")
 	f.Close()
@@ -575,42 +658,60 @@ func TestProcessMetadata(t *testing.T) {
 	t.Run("executable", func(t *testing.T) {
 		test.WaitSignal(t, func() error {
 			cmd := exec.Command(testFile)
-			return cmd.Run()
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assert.Equal(t, "exec", event.GetType(), "wrong event type")
-			assertRights(t, event.Exec.FileFields.Mode, uint16(expectedMode))
-			assertNearTime(t, event.Exec.FileFields.MTime)
-			assertNearTime(t, event.Exec.FileFields.CTime)
+			if err = cmd.Run(); err != nil {
+				return err
+			}
+			return nil
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			return assert.Equal(t, "exec", event.GetType(), "wrong event type") &&
+				assertRights(t, event.Exec.FileFields.Mode, uint16(expectedMode)) &&
+				assertNearTime(t, event.Exec.FileFields.MTime) &&
+				assertNearTime(t, event.Exec.FileFields.CTime)
 		})
 	})
 
 	t.Run("credentials", func(t *testing.T) {
 		test.WaitSignal(t, func() error {
+			errChan := make(chan error, 1)
+			var wg sync.WaitGroup
+			wg.Add(1)
+
 			go func() {
+				defer wg.Done()
+
 				runtime.LockOSThread()
 				// do not unlock, we want the thread to be killed when exiting the goroutine
 
 				if _, _, errno := syscall.Syscall(syscall.SYS_SETREGID, 2001, 2001, 0); errno != 0 {
-					t.Error(errno)
+					errChan <- error(errno)
+					return
 				}
 				if _, _, errno := syscall.Syscall(syscall.SYS_SETREUID, 1001, 1001, 0); errno != 0 {
-					t.Error(errno)
+					errChan <- error(errno)
+					return
 				}
 
-				if _, err := syscall.ForkExec(testFile, []string{}, nil); err != nil {
-					t.Error(err)
+				if _, err = syscall.ForkExec(testFile, []string{}, nil); err != nil {
+					errChan <- err
 				}
 			}()
-			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assert.Equal(t, "exec", event.GetType(), "wrong event type")
 
-			assert.Equal(t, 1001, int(event.Exec.Credentials.UID), "wrong uid")
-			assert.Equal(t, 1001, int(event.Exec.Credentials.EUID), "wrong euid")
-			assert.Equal(t, 1001, int(event.Exec.Credentials.FSUID), "wrong fsuid")
-			assert.Equal(t, 2001, int(event.Exec.Credentials.GID), "wrong gid")
-			assert.Equal(t, 2001, int(event.Exec.Credentials.EGID), "wrong egid")
-			assert.Equal(t, 2001, int(event.Exec.Credentials.FSGID), "wrong fsgid")
+			wg.Wait()
+
+			select {
+			case err = <-errChan:
+				return err
+			default:
+			}
+			return nil
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			return assert.Equal(t, "exec", event.GetType(), "wrong event type") &&
+				assert.Equal(t, 1001, int(event.Exec.Credentials.UID), "wrong uid") &&
+				assert.Equal(t, 1001, int(event.Exec.Credentials.EUID), "wrong euid") &&
+				assert.Equal(t, 1001, int(event.Exec.Credentials.FSUID), "wrong fsuid") &&
+				assert.Equal(t, 2001, int(event.Exec.Credentials.GID), "wrong gid") &&
+				assert.Equal(t, 2001, int(event.Exec.Credentials.EGID), "wrong egid") &&
+				assert.Equal(t, 2001, int(event.Exec.Credentials.FSGID), "wrong fsgid")
 		})
 	})
 }
@@ -633,7 +734,10 @@ func TestProcessExecExit(t *testing.T) {
 
 	err = test.GetProbeEvent(func() error {
 		cmd := exec.Command(executable, "-t", "01010101", "/dev/null")
-		return cmd.Run()
+		if err = cmd.Run(); err != nil {
+			return err
+		}
+		return nil
 	}, func(event *sprobe.Event) bool {
 		switch event.GetEventType() {
 		case model.ExecEventType:
@@ -649,7 +753,7 @@ func TestProcessExecExit(t *testing.T) {
 			}
 		}
 		return false
-	}, time.Second*3, model.ExecEventType, model.ExitEventType)
+	}, 3*time.Second, model.ExecEventType, model.ExitEventType)
 	if err != nil {
 		t.Error(err)
 	}
@@ -752,6 +856,7 @@ func TestProcessCredentialsUpdate(t *testing.T) {
 	t.Run("setuid", func(t *testing.T) {
 		test.WaitSignal(t, func() error {
 			var wg sync.WaitGroup
+			errChan := make(chan error, 1)
 
 			wg.Add(1)
 			go func() {
@@ -761,174 +866,229 @@ func TestProcessCredentialsUpdate(t *testing.T) {
 				// do not unlock, we want the thread to be killed when exiting the goroutine
 
 				if _, _, errno := syscall.Syscall(syscall.SYS_SETUID, 1001, 0, 0); errno != 0 {
-					t.Error(errno)
+					errChan <- error(errno)
 				}
 			}()
 
 			wg.Wait()
+
+			select {
+			case err = <-errChan:
+				return err
+			default:
+			}
 			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assertTriggeredRule(t, rule, "test_setuid")
-			assert.Equal(t, uint32(1001), event.SetUID.UID, "wrong uid")
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			return assertTriggeredRule(t, rule, "test_setuid") &&
+				assert.Equal(t, uint32(1001), event.SetUID.UID, "wrong uid")
 		})
 	})
 
 	t.Run("setreuid", func(t *testing.T) {
 		test.WaitSignal(t, func() error {
 			var wg sync.WaitGroup
-			wg.Add(1)
+			errChan := make(chan error, 1)
 
+			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				runtime.LockOSThread()
 				// do not unlock, we want the thread to be killed when exiting the goroutine
 
 				if _, _, errno := syscall.Syscall(syscall.SYS_SETREUID, 1002, 1003, 0); errno != 0 {
-					t.Error(errno)
+					errChan <- error(errno)
 				}
 			}()
 			wg.Wait()
+
+			select {
+			case err = <-errChan:
+				return err
+			default:
+			}
 			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assertTriggeredRule(t, rule, "test_setreuid")
-			assert.Equal(t, uint32(1002), event.SetUID.UID, "wrong uid")
-			assert.Equal(t, uint32(1003), event.SetUID.EUID, "wrong euid")
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			return assertTriggeredRule(t, rule, "test_setreuid") &&
+				assert.Equal(t, uint32(1002), event.SetUID.UID, "wrong uid") &&
+				assert.Equal(t, uint32(1003), event.SetUID.EUID, "wrong euid")
 		})
 	})
 
 	t.Run("setresuid", func(t *testing.T) {
 		test.WaitSignal(t, func() error {
 			var wg sync.WaitGroup
-			wg.Add(1)
+			errChan := make(chan error, 1)
 
+			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				runtime.LockOSThread()
 				// do not unlock, we want the thread to be killed when exiting the goroutine
 
 				if _, _, errno := syscall.Syscall(syscall.SYS_SETRESUID, 1002, 1003, 0); errno != 0 {
-					t.Error(errno)
+					errChan <- error(errno)
 				}
 			}()
 
 			wg.Wait()
+
+			select {
+			case err = <-errChan:
+				return err
+			default:
+			}
 			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assertTriggeredRule(t, rule, "test_setreuid")
-			assert.Equal(t, uint32(1002), event.SetUID.UID, "wrong uid")
-			assert.Equal(t, uint32(1003), event.SetUID.EUID, "wrong euid")
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			return assertTriggeredRule(t, rule, "test_setreuid") &&
+				assert.Equal(t, uint32(1002), event.SetUID.UID, "wrong uid") &&
+				assert.Equal(t, uint32(1003), event.SetUID.EUID, "wrong euid")
 		})
 	})
 
 	t.Run("setfsuid", func(t *testing.T) {
 		test.WaitSignal(t, func() error {
 			var wg sync.WaitGroup
-			wg.Add(1)
+			errChan := make(chan error, 1)
 
+			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				runtime.LockOSThread()
 				// do not unlock, we want the thread to be killed when exiting the goroutine
 
 				if _, _, errno := syscall.Syscall(syscall.SYS_SETFSUID, 1004, 0, 0); errno != 0 {
-					t.Error(errno)
+					errChan <- error(errno)
 				}
 			}()
 			wg.Wait()
+
+			select {
+			case err = <-errChan:
+				return err
+			default:
+			}
 			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assertTriggeredRule(t, rule, "test_setfsuid")
-			assert.Equal(t, uint32(1004), event.SetUID.FSUID, "wrong fsuid")
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			return assertTriggeredRule(t, rule, "test_setfsuid") &&
+				assert.Equal(t, uint32(1004), event.SetUID.FSUID, "wrong fsuid")
 		})
 	})
 
 	t.Run("setgid", func(t *testing.T) {
 		test.WaitSignal(t, func() error {
 			var wg sync.WaitGroup
-			wg.Add(1)
+			errChan := make(chan error, 1)
 
+			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				runtime.LockOSThread()
 				// do not unlock, we want the thread to be killed when exiting the goroutine
 
 				if _, _, errno := syscall.Syscall(syscall.SYS_SETGID, 1005, 0, 0); errno != 0 {
-					t.Error(errno)
+					errChan <- error(errno)
 				}
 			}()
 			wg.Wait()
+
+			select {
+			case err = <-errChan:
+				return err
+			default:
+			}
 			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assertTriggeredRule(t, rule, "test_setgid")
-			assert.Equal(t, uint32(1005), event.SetGID.GID, "wrong gid")
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			return assertTriggeredRule(t, rule, "test_setgid") &&
+				assert.Equal(t, uint32(1005), event.SetGID.GID, "wrong gid")
 		})
 	})
 
 	t.Run("setregid", func(t *testing.T) {
 		test.WaitSignal(t, func() error {
 			var wg sync.WaitGroup
-			wg.Add(1)
+			errChan := make(chan error, 1)
 
+			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				runtime.LockOSThread()
 				// do not unlock, we want the thread to be killed when exiting the goroutine
 
 				if _, _, errno := syscall.Syscall(syscall.SYS_SETREGID, 1006, 1007, 0); errno != 0 {
-					t.Error(errno)
+					errChan <- error(errno)
 				}
 			}()
 			wg.Wait()
+
+			select {
+			case err = <-errChan:
+				return err
+			default:
+			}
 			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assertTriggeredRule(t, rule, "test_setregid")
-			assert.Equal(t, uint32(1006), event.SetGID.GID, "wrong gid")
-			assert.Equal(t, uint32(1007), event.SetGID.EGID, "wrong egid")
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			return assertTriggeredRule(t, rule, "test_setregid") &&
+				assert.Equal(t, uint32(1006), event.SetGID.GID, "wrong gid") &&
+				assert.Equal(t, uint32(1007), event.SetGID.EGID, "wrong egid")
 		})
 	})
 
 	t.Run("setresgid", func(t *testing.T) {
 		test.WaitSignal(t, func() error {
 			var wg sync.WaitGroup
-			wg.Add(1)
+			errChan := make(chan error, 1)
 
+			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				runtime.LockOSThread()
 				// do not unlock, we want the thread to be killed when exiting the goroutine
 
 				if _, _, errno := syscall.Syscall(syscall.SYS_SETRESGID, 1006, 1007, 0); errno != 0 {
-					t.Error(errno)
+					errChan <- error(errno)
 				}
 			}()
 			wg.Wait()
+
+			select {
+			case err = <-errChan:
+				return err
+			default:
+			}
 			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assertTriggeredRule(t, rule, "test_setregid")
-			assert.Equal(t, uint32(1006), event.SetGID.GID, "wrong gid")
-			assert.Equal(t, uint32(1007), event.SetGID.EGID, "wrong egid")
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			return assertTriggeredRule(t, rule, "test_setregid") &&
+				assert.Equal(t, uint32(1006), event.SetGID.GID, "wrong gid") &&
+				assert.Equal(t, uint32(1007), event.SetGID.EGID, "wrong egid")
 		})
 	})
 
 	t.Run("setfsgid", func(t *testing.T) {
 		test.WaitSignal(t, func() error {
 			var wg sync.WaitGroup
-			wg.Add(1)
+			errChan := make(chan error, 1)
 
+			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				runtime.LockOSThread()
 				// do not unlock, we want the thread to be killed when exiting the goroutine
 
 				if _, _, errno := syscall.Syscall(syscall.SYS_SETFSGID, 1008, 0, 0); errno != 0 {
-					t.Error(errno)
+					errChan <- error(errno)
 				}
 			}()
 			wg.Wait()
+
+			select {
+			case err = <-errChan:
+				return err
+			default:
+			}
 			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assertTriggeredRule(t, rule, "test_setfsgid")
-			assert.Equal(t, uint32(1008), event.SetGID.FSGID, "wrong gid")
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			return assertTriggeredRule(t, rule, "test_setfsgid") &&
+				assert.Equal(t, uint32(1008), event.SetGID.FSGID, "wrong gid")
 		})
 	})
 
@@ -946,8 +1106,9 @@ func TestProcessCredentialsUpdate(t *testing.T) {
 
 		test.WaitSignal(t, func() error {
 			var wg sync.WaitGroup
-			wg.Add(1)
+			errChan := make(chan error, 1)
 
+			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				threadCapabilitiesLock.Lock()
@@ -960,18 +1121,29 @@ func TestProcessCredentialsUpdate(t *testing.T) {
 				threadCapabilities.Unset(capability.PERMITTED|capability.EFFECTIVE, capability.CAP_SYS_BOOT)
 				threadCapabilities.Unset(capability.EFFECTIVE, capability.CAP_WAKE_ALARM)
 				if err := threadCapabilities.Apply(capability.CAPS); err != nil {
-					t.Error(err)
+					errChan <- err
 				}
 			}()
 			wg.Wait()
+
+			select {
+			case err = <-errChan:
+				return err
+			default:
+			}
 			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assertTriggeredRule(t, rule, "test_capset")
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			var failed bool
+
+			if !assertTriggeredRule(t, rule, "test_capset") {
+				failed = true
+			}
 
 			// transform the collected kernel capabilities into a usable capability set
 			newSet, err := capability.NewPid2(0)
 			if err != nil {
 				t.Error(err)
+				failed = true
 			}
 			newSet.Clear(capability.PERMITTED | capability.EFFECTIVE)
 			parseCapIntoSet(event.Capset.CapEffective, capability.EFFECTIVE, newSet, t)
@@ -983,11 +1155,14 @@ func TestProcessCredentialsUpdate(t *testing.T) {
 			for _, c := range capability.List() {
 				if expectedValue := threadCapabilities.Get(capability.EFFECTIVE, c); expectedValue != newSet.Get(capability.EFFECTIVE, c) {
 					t.Errorf("expected incorrect %s flag in cap_effective, expected %v", c, expectedValue)
+					failed = true
 				}
 				if expectedValue := threadCapabilities.Get(capability.PERMITTED, c); expectedValue != newSet.Get(capability.PERMITTED, c) {
 					t.Errorf("expected incorrect %s flag in cap_permitted, expected %v", c, expectedValue)
+					failed = true
 				}
 			}
+			return !failed
 		})
 	})
 }

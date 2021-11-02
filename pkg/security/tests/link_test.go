@@ -46,28 +46,30 @@ func TestLink(t *testing.T) {
 		test.WaitSignal(t, func() error {
 			_, _, errno := syscall.Syscall(syscallNB, uintptr(testOldFilePtr), uintptr(testNewFilePtr), 0)
 			if errno != 0 {
-				t.Fatal(errno)
+				return error(errno)
 			}
 			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assert.Equal(t, "link", event.GetType(), "wrong event type")
-			assert.Equal(t, getInode(t, testNewFile), event.Link.Source.Inode, "wrong inode")
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			a := assert.Equal(t, "link", event.GetType(), "wrong event type") &&
+				assert.Equal(t, getInode(t, testNewFile), event.Link.Source.Inode, "wrong inode") &&
+				assertRights(t, event.Link.Source.Mode, uint16(expectedMode)) &&
+				assertRights(t, event.Link.Target.Mode, uint16(expectedMode)) &&
+				assertNearTime(t, event.Link.Source.MTime) &&
+				assertNearTime(t, event.Link.Source.CTime) &&
+				assertNearTime(t, event.Link.Target.MTime) &&
+				assertNearTime(t, event.Link.Target.CTime)
 
-			assertRights(t, event.Link.Source.Mode, uint16(expectedMode))
-			assertRights(t, event.Link.Target.Mode, uint16(expectedMode))
+			b := validateLinkSchema(t, event)
 
-			assertNearTime(t, event.Link.Source.MTime)
-			assertNearTime(t, event.Link.Source.CTime)
-			assertNearTime(t, event.Link.Target.MTime)
-			assertNearTime(t, event.Link.Target.CTime)
-
-			if !validateLinkSchema(t, event) {
+			if !b {
 				t.Error(event.String())
 			}
+
+			return a && b
 		})
 
-		if err := os.Remove(testNewFile); err != nil {
-			t.Error(err)
+		if err = os.Remove(testNewFile); err != nil {
+			t.Fatal(err)
 		}
 	}))
 
@@ -75,24 +77,26 @@ func TestLink(t *testing.T) {
 		test.WaitSignal(t, func() error {
 			_, _, errno := syscall.Syscall6(syscall.SYS_LINKAT, 0, uintptr(testOldFilePtr), 0, uintptr(testNewFilePtr), 0, 0)
 			if errno != 0 {
-				t.Fatal(errno)
+				return error(errno)
 			}
 			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assert.Equal(t, "link", event.GetType(), "wrong event type")
-			assert.Equal(t, getInode(t, testNewFile), event.Link.Source.Inode, "wrong inode")
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			a := assert.Equal(t, "link", event.GetType(), "wrong event type") &&
+				assert.Equal(t, getInode(t, testNewFile), event.Link.Source.Inode, "wrong inode") &&
+				assertRights(t, event.Link.Source.Mode, uint16(expectedMode)) &&
+				assertRights(t, event.Link.Target.Mode, uint16(expectedMode)) &&
+				assertNearTime(t, event.Link.Source.MTime) &&
+				assertNearTime(t, event.Link.Source.CTime) &&
+				assertNearTime(t, event.Link.Target.MTime) &&
+				assertNearTime(t, event.Link.Target.CTime)
 
-			assertRights(t, event.Link.Source.Mode, uint16(expectedMode))
-			assertRights(t, event.Link.Target.Mode, uint16(expectedMode))
+			b := validateLinkSchema(t, event)
 
-			assertNearTime(t, event.Link.Source.MTime)
-			assertNearTime(t, event.Link.Source.CTime)
-			assertNearTime(t, event.Link.Target.MTime)
-			assertNearTime(t, event.Link.Target.CTime)
-
-			if !validateLinkSchema(t, event) {
+			if !b {
 				t.Error(event.String())
 			}
+
+			return a && b
 		})
 	})
 }

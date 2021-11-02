@@ -48,11 +48,14 @@ func TestMacros(t *testing.T) {
 	}
 
 	test.WaitSignal(t, func() error {
-		if err := os.Mkdir(testFile, 0777); err != nil {
+		if err = os.Mkdir(testFile, 0777); err != nil {
 			return err
 		}
-		return os.Remove(testFile)
-	}, func(event *sprobe.Event, rule *rules.Rule) {
-		assert.Equal(t, "mkdir", event.GetType(), "wrong event type")
+		if err = os.Remove(testFile); err != nil {
+			return err
+		}
+		return nil
+	}, func(event *sprobe.Event, rule *rules.Rule) bool {
+		return assert.Equal(t, "mkdir", event.GetType(), "wrong event type")
 	})
 }

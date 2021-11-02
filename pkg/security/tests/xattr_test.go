@@ -61,15 +61,14 @@ func TestSetXAttr(t *testing.T) {
 				return error(errno)
 			}
 			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assert.Equal(t, "setxattr", event.GetType(), "wrong event type")
-			assert.Equal(t, "user.test_xattr", event.SetXAttr.Name)
-			assert.Equal(t, "user", event.SetXAttr.Namespace)
-			assert.Equal(t, getInode(t, testFile), event.SetXAttr.File.Inode, "wrong inode")
-			assertRights(t, event.SetXAttr.File.Mode, expectedMode)
-
-			assertNearTime(t, event.SetXAttr.File.MTime)
-			assertNearTime(t, event.SetXAttr.File.CTime)
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			return assert.Equal(t, "setxattr", event.GetType(), "wrong event type") &&
+				assert.Equal(t, "user.test_xattr", event.SetXAttr.Name) &&
+				assert.Equal(t, "user", event.SetXAttr.Namespace) &&
+				assert.Equal(t, getInode(t, testFile), event.SetXAttr.File.Inode, "wrong inode") &&
+				assertRights(t, event.SetXAttr.File.Mode, expectedMode) &&
+				assertNearTime(t, event.SetXAttr.File.MTime) &&
+				assertNearTime(t, event.SetXAttr.File.CTime)
 		})
 	})
 
@@ -96,18 +95,17 @@ func TestSetXAttr(t *testing.T) {
 			// to xattr(7), so just test that we get the proper error.
 			// We should get the event though
 			if errno != syscall.EACCES && errno != syscall.EPERM {
-				t.Fatal(error(errno))
+				return error(errno)
 			}
 			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assert.Equal(t, "setxattr", event.GetType(), "wrong event type")
-			assert.Equal(t, "user.test_xattr", event.SetXAttr.Name)
-			assert.Equal(t, "user", event.SetXAttr.Namespace)
-			assert.Equal(t, getInode(t, testFile), event.SetXAttr.File.Inode, "wrong inode")
-			assertRights(t, event.SetXAttr.File.Mode, 0777)
-
-			assertNearTime(t, event.SetXAttr.File.MTime)
-			assertNearTime(t, event.SetXAttr.File.CTime)
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			return assert.Equal(t, "setxattr", event.GetType(), "wrong event type") &&
+				assert.Equal(t, "user.test_xattr", event.SetXAttr.Name) &&
+				assert.Equal(t, "user", event.SetXAttr.Namespace) &&
+				assert.Equal(t, getInode(t, testFile), event.SetXAttr.File.Inode, "wrong inode") &&
+				assertRights(t, event.SetXAttr.File.Mode, 0777) &&
+				assertNearTime(t, event.SetXAttr.File.MTime) &&
+				assertNearTime(t, event.SetXAttr.File.CTime)
 		})
 	})
 
@@ -127,18 +125,17 @@ func TestSetXAttr(t *testing.T) {
 		test.WaitSignal(t, func() error {
 			_, _, errno := syscall.Syscall6(syscall.SYS_FSETXATTR, f.Fd(), uintptr(xattrNamePtr), uintptr(xattrValuePtr), 0, unix.XATTR_CREATE, 0)
 			if errno != 0 {
-				t.Fatal(error(errno))
+				return error(errno)
 			}
 			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assert.Equal(t, "setxattr", event.GetType(), "wrong event type")
-			assert.Equal(t, "user.test_xattr", event.SetXAttr.Name)
-			assert.Equal(t, "user", event.SetXAttr.Namespace)
-			assert.Equal(t, getInode(t, testFile), event.SetXAttr.File.Inode, "wrong inode")
-			assertRights(t, event.SetXAttr.File.Mode, expectedMode)
-
-			assertNearTime(t, event.SetXAttr.File.MTime)
-			assertNearTime(t, event.SetXAttr.File.CTime)
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			return assert.Equal(t, "setxattr", event.GetType(), "wrong event type") &&
+				assert.Equal(t, "user.test_xattr", event.SetXAttr.Name) &&
+				assert.Equal(t, "user", event.SetXAttr.Namespace) &&
+				assert.Equal(t, getInode(t, testFile), event.SetXAttr.File.Inode, "wrong inode") &&
+				assertRights(t, event.SetXAttr.File.Mode, expectedMode) &&
+				assertNearTime(t, event.SetXAttr.File.MTime) &&
+				assertNearTime(t, event.SetXAttr.File.CTime)
 		})
 	})
 }
@@ -194,18 +191,16 @@ func TestRemoveXAttr(t *testing.T) {
 		test.WaitSignal(t, func() error {
 			_, _, errno = syscall.Syscall(syscall.SYS_REMOVEXATTR, uintptr(testFilePtr), uintptr(xattrNamePtr), 0)
 			if errno != 0 {
-				t.Fatal(error(errno))
+				return error(errno)
 			}
 			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assert.Equal(t, "removexattr", event.GetType(), "wrong event type")
-			assert.Equal(t, "user.test_xattr", event.RemoveXAttr.Name)
-
-			assert.Equal(t, getInode(t, testFile), event.RemoveXAttr.File.Inode, "wrong inode")
-			assertRights(t, event.RemoveXAttr.File.Mode, uint16(expectedMode))
-
-			assertNearTime(t, event.RemoveXAttr.File.MTime)
-			assertNearTime(t, event.RemoveXAttr.File.CTime)
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			return assert.Equal(t, "removexattr", event.GetType(), "wrong event type") &&
+				assert.Equal(t, "user.test_xattr", event.RemoveXAttr.Name) &&
+				assert.Equal(t, getInode(t, testFile), event.RemoveXAttr.File.Inode, "wrong inode") &&
+				assertRights(t, event.RemoveXAttr.File.Mode, uint16(expectedMode)) &&
+				assertNearTime(t, event.RemoveXAttr.File.MTime) &&
+				assertNearTime(t, event.RemoveXAttr.File.CTime)
 		})
 	})
 
@@ -239,18 +234,16 @@ func TestRemoveXAttr(t *testing.T) {
 			// Linux and Android don't support xattrs on symlinks according
 			// to xattr(7), so just test that we get the proper error.
 			if errno != syscall.EACCES && errno != syscall.EPERM {
-				t.Fatal(error(errno))
+				return error(errno)
 			}
 			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assert.Equal(t, "removexattr", event.GetType(), "wrong event type")
-			assert.Equal(t, "user.test_xattr", event.RemoveXAttr.Name)
-
-			assert.Equal(t, getInode(t, testFile), event.RemoveXAttr.File.Inode, "wrong inode")
-			assertRights(t, event.RemoveXAttr.File.Mode, 0777)
-
-			assertNearTime(t, event.RemoveXAttr.File.MTime)
-			assertNearTime(t, event.RemoveXAttr.File.CTime)
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			return assert.Equal(t, "removexattr", event.GetType(), "wrong event type") &&
+				assert.Equal(t, "user.test_xattr", event.RemoveXAttr.Name) &&
+				assert.Equal(t, getInode(t, testFile), event.RemoveXAttr.File.Inode, "wrong inode") &&
+				assertRights(t, event.RemoveXAttr.File.Mode, 0777) &&
+				assertNearTime(t, event.RemoveXAttr.File.MTime) &&
+				assertNearTime(t, event.RemoveXAttr.File.CTime)
 		})
 	})
 
@@ -276,28 +269,40 @@ func TestRemoveXAttr(t *testing.T) {
 		test.WaitSignal(t, func() error {
 			_, _, errno = syscall.Syscall(syscall.SYS_FREMOVEXATTR, f.Fd(), uintptr(xattrNamePtr), 0)
 			if errno != 0 {
-				t.Fatal(error(errno))
+				return error(errno)
 			}
 			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			var failed bool
+
 			if event.GetType() != "removexattr" {
 				t.Errorf("expected removexattr event, got %s", event.GetType())
+				failed = true
 			}
 
 			if event.RemoveXAttr.Name != "user.test_xattr" || event.RemoveXAttr.Namespace != "user" {
 				t.Errorf("expected removexattr name user.test_xattr, got %s", event.RemoveXAttr.Name)
+				failed = true
 			}
 
 			if inode := getInode(t, testFile); inode != event.RemoveXAttr.File.Inode {
-				t.Logf("expected inode %d, got %d", event.RemoveXAttr.File.Inode, inode)
+				t.Errorf("expected inode %d, got %d", event.RemoveXAttr.File.Inode, inode)
+				failed = true
 			}
 
 			if int(event.RemoveXAttr.File.Mode)&expectedMode != expectedMode {
 				t.Errorf("expected initial mode %d, got %d", expectedMode, int(event.RemoveXAttr.File.Mode)&expectedMode)
+				failed = true
 			}
 
-			assertNearTime(t, event.RemoveXAttr.File.MTime)
-			assertNearTime(t, event.RemoveXAttr.File.CTime)
+			if !assertNearTime(t, event.RemoveXAttr.File.MTime) {
+				failed = true
+			}
+
+			if !assertNearTime(t, event.RemoveXAttr.File.CTime) {
+				failed = true
+			}
+			return !failed
 		})
 	})
 }

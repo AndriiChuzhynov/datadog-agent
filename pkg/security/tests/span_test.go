@@ -69,17 +69,23 @@ func TestSpan(t *testing.T) {
 
 		test.WaitSignal(t, func() error {
 			testFile, _, err := test.Create("test-span")
-			os.Remove(testFile)
-			return err
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assertTriggeredRule(t, rule, "test_span_rule_open")
+			if err != nil {
+				return err
+			}
+			if err = os.Remove(testFile); err != nil {
+				return err
+			}
+			return nil
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			a := assertTriggeredRule(t, rule, "test_span_rule_open")
 
-			if !validateSpanSchema(t, event) {
-				t.Fatal(event.String())
+			b := validateSpanSchema(t, event)
+			if !b {
+				t.Error(event.String())
 			}
 
-			assert.Equal(t, uint64(123), event.SpanContext.SpanID)
-			assert.Equal(t, uint64(456), event.SpanContext.TraceID)
+			return assert.Equal(t, uint64(123), event.SpanContext.SpanID) &&
+				assert.Equal(t, uint64(456), event.SpanContext.TraceID) && a && b
 		})
 	})
 
@@ -94,16 +100,19 @@ func TestSpan(t *testing.T) {
 		}
 
 		test.WaitSignal(t, func() error {
-			return runSyscallTesterFunc(t, syscallTester, "span-exec", "104", "204", executable, "/tmp/test_span_rule_exec")
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assertTriggeredRule(t, rule, "test_span_rule_exec")
-
-			if !validateSpanSchema(t, event) {
-				t.Fatal(event.String())
+			if err = runSyscallTesterFunc(t, syscallTester, "span-exec", "104", "204", executable, "/tmp/test_span_rule_exec"); err != nil {
+				return err
+			}
+			return nil
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			a := assertTriggeredRule(t, rule, "test_span_rule_exec")
+			b := validateSpanSchema(t, event)
+			if !b {
+				t.Error(event.String())
 			}
 
-			assert.Equal(t, uint64(204), event.SpanContext.SpanID)
-			assert.Equal(t, uint64(104), event.SpanContext.TraceID)
+			return assert.Equal(t, uint64(204), event.SpanContext.SpanID) &&
+				assert.Equal(t, uint64(104), event.SpanContext.TraceID) && a && b
 		})
 	})
 }

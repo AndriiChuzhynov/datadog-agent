@@ -48,17 +48,16 @@ func TestRmdir(t *testing.T) {
 		inode := getInode(t, testFile)
 
 		test.WaitSignal(t, func() error {
-			if _, _, err := syscall.Syscall(syscallNB, uintptr(testFilePtr), 0, 0); err != 0 {
-				t.Fatal(error(err))
+			if _, _, errno := syscall.Syscall(syscallNB, uintptr(testFilePtr), 0, 0); errno != 0 {
+				return error(errno)
 			}
 			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assert.Equal(t, "rmdir", event.GetType(), "wrong event type")
-			assert.Equal(t, inode, event.Rmdir.File.Inode, "wrong inode")
-			assertRights(t, event.Rmdir.File.Mode, expectedMode, "wrong initial mode")
-
-			assertNearTime(t, event.Rmdir.File.MTime)
-			assertNearTime(t, event.Rmdir.File.CTime)
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			return assert.Equal(t, "rmdir", event.GetType(), "wrong event type") &&
+				assert.Equal(t, inode, event.Rmdir.File.Inode, "wrong inode") &&
+				assertRights(t, event.Rmdir.File.Mode, expectedMode, "wrong initial mode") &&
+				assertNearTime(t, event.Rmdir.File.MTime) &&
+				assertNearTime(t, event.Rmdir.File.CTime)
 		})
 	}))
 
@@ -77,16 +76,15 @@ func TestRmdir(t *testing.T) {
 
 		test.WaitSignal(t, func() error {
 			if _, _, err := syscall.Syscall(syscall.SYS_UNLINKAT, 0, uintptr(testDirPtr), 512); err != 0 {
-				t.Fatal(err)
+				return err
 			}
 			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assert.Equal(t, "rmdir", event.GetType(), "wrong event type")
-			assert.Equal(t, inode, event.Rmdir.File.Inode, "wrong inode")
-			assertRights(t, event.Rmdir.File.Mode, expectedMode, "wrong initial mode")
-
-			assertNearTime(t, event.Rmdir.File.MTime)
-			assertNearTime(t, event.Rmdir.File.CTime)
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			return assert.Equal(t, "rmdir", event.GetType(), "wrong event type") &&
+				assert.Equal(t, inode, event.Rmdir.File.Inode, "wrong inode") &&
+				assertRights(t, event.Rmdir.File.Mode, expectedMode, "wrong initial mode") &&
+				assertNearTime(t, event.Rmdir.File.MTime) &&
+				assertNearTime(t, event.Rmdir.File.CTime)
 		})
 	})
 }
@@ -115,12 +113,12 @@ func TestRmdirInvalidate(t *testing.T) {
 
 		test.WaitSignal(t, func() error {
 			if err := syscall.Rmdir(testFile); err != nil {
-				t.Fatal(err)
+				return err
 			}
 			return nil
-		}, func(event *sprobe.Event, rule *rules.Rule) {
-			assert.Equal(t, "rmdir", event.GetType(), "wrong event type")
-			assertFieldEqual(t, event, "rmdir.file.path", testFile)
+		}, func(event *sprobe.Event, rule *rules.Rule) bool {
+			return assert.Equal(t, "rmdir", event.GetType(), "wrong event type") &&
+				assertFieldEqual(t, event, "rmdir.file.path", testFile)
 		})
 	}
 }
