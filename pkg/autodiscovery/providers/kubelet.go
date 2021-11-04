@@ -59,7 +59,12 @@ func (k *KubeletConfigProvider) Collect(ctx context.Context) ([]integration.Conf
 	k.upToDate = true
 	k.Unlock()
 
-	return k.generateConfigs()
+	configs, err := k.generateConfigs()
+
+	log.Infof("configs: %+v", configs)
+	log.Infof("podCache: %+v", k.podCache)
+
+	return configs, err
 }
 
 func (k *KubeletConfigProvider) listen() {
@@ -152,7 +157,6 @@ func (k *KubeletConfigProvider) generateConfigs() ([]integration.Config, error) 
 		containerIdentifiers := map[string]struct{}{}
 		containerNames := map[string]struct{}{}
 		for _, podContainer := range pod.Containers {
-
 			adIdentifier := podContainer.Name
 
 			customADIdentifier, found := utils.GetCustomCheckID(pod.Annotations, podContainer.Name)
