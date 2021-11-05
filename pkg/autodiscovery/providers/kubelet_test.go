@@ -54,7 +54,7 @@ func TestParseKubeletPodlist(t *testing.T) {
 				Containers: []workloadmeta.OrchestratorContainer{
 					{
 						Name: "apache",
-						ID:   "container_id://3b8efe0c50e8",
+						ID:   "3b8efe0c50e8",
 					},
 				},
 			},
@@ -85,11 +85,11 @@ func TestParseKubeletPodlist(t *testing.T) {
 				Containers: []workloadmeta.OrchestratorContainer{
 					{
 						Name: "apache",
-						ID:   "container_id://3b8efe0c50e8",
+						ID:   "3b8efe0c50e8",
 					},
 					{
 						Name: "nginx",
-						ID:   "container_id://4ac8352d70bf1",
+						ID:   "4ac8352d70bf1",
 					},
 				},
 			},
@@ -124,7 +124,7 @@ func TestParseKubeletPodlist(t *testing.T) {
 				Containers: []workloadmeta.OrchestratorContainer{
 					{
 						Name: "apache",
-						ID:   "container_id://3b8efe0c50e8",
+						ID:   "3b8efe0c50e8",
 					},
 				},
 			},
@@ -160,7 +160,7 @@ func TestParseKubeletPodlist(t *testing.T) {
 				Containers: []workloadmeta.OrchestratorContainer{
 					{
 						Name: "nginx",
-						ID:   "container_id://4ac8352d70bf1",
+						ID:   "4ac8352d70bf1",
 					},
 				},
 			},
@@ -190,11 +190,11 @@ func TestParseKubeletPodlist(t *testing.T) {
 				Containers: []workloadmeta.OrchestratorContainer{
 					{
 						Name: "nginx",
-						ID:   "container_id://4ac8352d70bf1",
+						ID:   "4ac8352d70bf1",
 					},
 					{
 						Name: "apache",
-						ID:   "container_id://3b8efe0c50e8",
+						ID:   "3b8efe0c50e8",
 					},
 				},
 			},

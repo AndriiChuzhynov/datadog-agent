@@ -3,6 +3,7 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2016-present Datadog, Inc.
 
+//go:build !serverless
 // +build !serverless
 
 package listeners
@@ -150,7 +151,7 @@ func (l *KubeletListener) createContainerService(
 		return ports[i].Port < ports[j].Port
 	})
 
-	entity := containers.BuildEntityName(string(container.Runtime), container.ID)
+	entity := containers.BuildTaggerEntityName(container.ID)
 	svc := &service{
 		entity:       container,
 		creationTime: creationTime,

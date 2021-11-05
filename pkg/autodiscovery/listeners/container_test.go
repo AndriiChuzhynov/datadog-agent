@@ -3,6 +3,7 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2016-present Datadog, Inc.
 
+//go:build !serverless
 // +build !serverless
 
 package listeners
@@ -76,7 +77,7 @@ func TestCreateContainerService(t *testing.T) {
 					service: &service{
 						entity: basicContainer,
 						adIdentifiers: []string{
-							"docker://foobarquux",
+							"container_id://foobarquux",
 							"gcr.io/foobar",
 							"foobar",
 						},
@@ -109,7 +110,7 @@ func TestCreateContainerService(t *testing.T) {
 					service: &service{
 						entity: multiplePortsContainer,
 						adIdentifiers: []string{
-							"docker://foobarquux",
+							"container_id://foobarquux",
 							"foobar",
 						},
 						hosts: map[string]string{},

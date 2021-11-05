@@ -3,6 +3,7 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2016-present Datadog, Inc.
 
+//go:build !serverless
 // +build !serverless
 
 package listeners
@@ -213,7 +214,7 @@ func TestKubeletCreateContainerService(t *testing.T) {
 					service: &service{
 						entity: basicContainer,
 						adIdentifiers: []string{
-							"docker://foobarquux",
+							"container_id://foobarquux",
 							"gcr.io/foobar:latest",
 							"foobar",
 						},
@@ -241,7 +242,7 @@ func TestKubeletCreateContainerService(t *testing.T) {
 					service: &service{
 						entity: recentlyStoppedContainer,
 						adIdentifiers: []string{
-							"docker://foobarquux",
+							"container_id://foobarquux",
 							"foobar",
 						},
 						hosts: map[string]string{
@@ -283,7 +284,7 @@ func TestKubeletCreateContainerService(t *testing.T) {
 					service: &service{
 						entity: multiplePortsContainer,
 						adIdentifiers: []string{
-							"docker://foobarquux",
+							"container_id://foobarquux",
 							"foobar",
 						},
 						hosts: map[string]string{
@@ -320,7 +321,7 @@ func TestKubeletCreateContainerService(t *testing.T) {
 						entity: customIDsContainer,
 						adIdentifiers: []string{
 							"customid",
-							"docker://foobarquux",
+							"container_id://foobarquux",
 							"foobar",
 						},
 						hosts: map[string]string{

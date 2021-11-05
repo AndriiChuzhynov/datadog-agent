@@ -3,6 +3,7 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2017-present Datadog, Inc.
 
+//go:build !serverless
 // +build !serverless
 
 package listeners
@@ -87,7 +88,7 @@ func (l *ECSFargateListener) createContainerService(
 	svc := &service{
 		entity: container,
 		adIdentifiers: ComputeContainerServiceIDs(
-			containers.BuildEntityName(string(container.Runtime), container.ID),
+			containers.BuildTaggerEntityName(container.ID),
 			containerImg.RawName,
 			container.Labels,
 		),

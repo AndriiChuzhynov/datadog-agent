@@ -3,6 +3,7 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2017-present Datadog, Inc.
 
+//go:build !serverless
 // +build !serverless
 
 package listeners
@@ -71,7 +72,7 @@ func TestECSFargateCreateContainerService(t *testing.T) {
 					service: &service{
 						entity: container,
 						adIdentifiers: []string{
-							"docker://foobarquux",
+							"container_id://foobarquux",
 							"gcr.io/foobar",
 							"foobar",
 						},

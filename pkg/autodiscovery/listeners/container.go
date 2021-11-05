@@ -3,6 +3,7 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2016-present Datadog, Inc.
 
+//go:build !serverless
 // +build !serverless
 
 package listeners
@@ -90,7 +91,7 @@ func (l *ContainerListener) createContainerService(
 		entity:       container,
 		creationTime: integration.After,
 		adIdentifiers: ComputeContainerServiceIDs(
-			containers.BuildEntityName(string(container.Runtime), container.ID),
+			containers.BuildTaggerEntityName(container.ID),
 			containerImg.RawName,
 			container.Labels,
 		),

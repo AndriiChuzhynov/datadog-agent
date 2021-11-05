@@ -162,7 +162,7 @@ func (d *ContainerConfigProvider) deleteContainer(containerID string) {
 func (d *ContainerConfigProvider) generateConfigs() ([]integration.Config, error) {
 	var configs []integration.Config
 	for containerID, container := range d.containerCache {
-		containerEntityName := containers.BuildEntityName(string(container.Runtime), containerID)
+		containerEntityName := containers.BuildTaggerEntityName(containerID)
 		c, errors := extractTemplatesFromMap(containerEntityName, container.Labels, containerADLabelPrefix)
 
 		for _, err := range errors {
