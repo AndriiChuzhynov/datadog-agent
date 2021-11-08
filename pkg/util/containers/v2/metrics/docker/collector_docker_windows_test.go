@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/DataDog/datadog-agent/pkg/util"
-	"github.com/DataDog/datadog-agent/pkg/util/containers/v2/metrics"
+	"github.com/DataDog/datadog-agent/pkg/util/containers/v2/metrics/provider"
 	"github.com/docker/docker/api/types"
 	"github.com/stretchr/testify/assert"
 )
@@ -21,7 +21,7 @@ func Test_convertCPUStats(t *testing.T) {
 	tests := []struct {
 		name           string
 		input          types.CPUStats
-		expectedOutput metrics.ContainerCPUStats
+		expectedOutput provider.ContainerCPUStats
 	}{
 		{
 			name: "basic",
@@ -32,7 +32,7 @@ func Test_convertCPUStats(t *testing.T) {
 					UsageInUsermode:   44,
 				},
 			},
-			expectedOutput: metrics.ContainerCPUStats{
+			expectedOutput: provider.ContainerCPUStats{
 				Total:  util.Float64Ptr(4200),
 				System: util.Float64Ptr(4300),
 				User:   util.Float64Ptr(4400),
@@ -51,7 +51,7 @@ func Test_convertMemoryStats(t *testing.T) {
 	tests := []struct {
 		name           string
 		input          types.MemoryStats
-		expectedOutput metrics.ContainerMemStats
+		expectedOutput provider.ContainerMemStats
 	}{
 		{
 			name: "basic",
@@ -62,7 +62,7 @@ func Test_convertMemoryStats(t *testing.T) {
 				CommitPeak:        45,
 				PrivateWorkingSet: 46,
 			},
-			expectedOutput: metrics.ContainerMemStats{
+			expectedOutput: provider.ContainerMemStats{
 				UsageTotal:        util.Float64Ptr(42),
 				Limit:             util.Float64Ptr(43),
 				PrivateWorkingSet: util.Float64Ptr(46),
@@ -83,7 +83,7 @@ func Test_convertIOStats(t *testing.T) {
 	tests := []struct {
 		name           string
 		input          types.StorageStats
-		expectedOutput metrics.ContainerIOStats
+		expectedOutput provider.ContainerIOStats
 	}{
 		{
 			name: "basic",
@@ -93,7 +93,7 @@ func Test_convertIOStats(t *testing.T) {
 				WriteCountNormalized: 44,
 				WriteSizeBytes:       45,
 			},
-			expectedOutput: metrics.ContainerIOStats{
+			expectedOutput: provider.ContainerIOStats{
 				ReadBytes:       util.Float64Ptr(43),
 				WriteBytes:      util.Float64Ptr(45),
 				ReadOperations:  util.Float64Ptr(42),
@@ -113,12 +113,12 @@ func Test_convetrPIDStats(t *testing.T) {
 	tests := []struct {
 		name           string
 		input          uint32
-		expectedOutput metrics.ContainerPIDStats
+		expectedOutput provider.ContainerPIDStats
 	}{
 		{
 			name:  "basic",
 			input: 42,
-			expectedOutput: metrics.ContainerPIDStats{
+			expectedOutput: provider.ContainerPIDStats{
 				ThreadCount: util.Float64Ptr(42),
 			},
 		},
