@@ -161,7 +161,7 @@ require (
 	github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d // indirect
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/oliveagle/jsonpath v0.0.0-20180606110733-2e52cf6e6852 // indirect
-	github.com/open-policy-agent/opa v0.34.0
+	github.com/open-policy-agent/opa v0.34.1
 	github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417
 	github.com/openshift/api v0.0.0-20190924102528-32369d4db2ad
 	github.com/patrickmn/go-cache v2.1.0+incompatible
@@ -191,7 +191,7 @@ require (
 	github.com/vmihailenco/msgpack/v4 v4.3.12
 	github.com/xeipuuv/gojsonschema v0.0.0-20180618132009-1d523034197f
 	go.etcd.io/bbolt v1.3.6
-	go.etcd.io/etcd/client/v2 v2.305.0
+	go.etcd.io/etcd/client/v2 v2.305.1
 	go.opentelemetry.io/collector v0.38.0
 	go.opentelemetry.io/collector/model v0.38.0
 	// Fix vanity import issue
